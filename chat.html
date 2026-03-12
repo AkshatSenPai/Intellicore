@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with Donald Trump - Intellicore</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Typing animation for streaming */
+        .typing-dots {
+            animation: pulse 1s ease-in-out infinite;
+            color: var(--color-text-muted);
+            letter-spacing: 2px;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="chat-body">
+    <!-- Chat Header -->
+    <div class="chat-header">
+        <div class="chat-header-left">
+            <a href="persona-trump.html" class="back-link">← Back to Profile</a>
+        </div>
+        <div class="chat-header-center">
+            <div class="chat-persona-avatar trump-avatar">DT</div>
+            <div class="chat-persona-info">
+                <h2 class="chat-persona-name">Donald Trump</h2>
+                <span class="chat-persona-status" id="serverStatus">Connecting...</span>
+            </div>
+        </div>
+        <div class="chat-header-right">
+            <div class="credit-counter" id="creditCounter">
+                <span class="credit-icon">💬</span>
+                <span class="credit-text">Credits: <span id="creditCount">50</span>/50</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Messages Area -->
+    <div class="messages-container" id="messagesContainer">
+        <div class="messages-area" id="messagesArea">
+            <!-- Welcome Message -->
+            <div class="chat-welcome">
+                <div class="persona-avatar large trump-avatar">DT</div>
+                <h3>Start a conversation with Donald Trump</h3>
+                <p>Powered by RAG — responses are generated from real transcripts.</p>
+                <div class="suggested-questions">
+                    <button class="suggestion-btn" data-question="What defines your leadership style?">
+                        What defines your leadership style?
+                    </button>
+                    <button class="suggestion-btn" data-question="What do you consider your biggest achievements?">
+                        What do you consider your biggest achievements?
+                    </button>
+                    <button class="suggestion-btn" data-question="How do you approach decision-making under pressure?">
+                        How do you approach decision-making under pressure?
+                    </button>
+                    <button class="suggestion-btn" data-question="What are your thoughts on trade deals and negotiations?">
+                        What are your thoughts on trade deals and negotiations?
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="chat-input-area" id="chatInputArea">
+        <div class="input-container">
+            <input 
+                type="text" 
+                class="message-input" 
+                id="messageInput"
+                placeholder="Type your message..."
+                autocomplete="off"
+            >
+            <button class="send-button" id="sendButton">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
+        </div>
+        <div class="input-info">
+            <span id="inputStatus">1 credit per message · <span id="remainingCredits">50</span> credits remaining</span>
+        </div>
+    </div>
+
+    <!-- Credits Exhausted Modal -->
+    <div class="modal" id="creditsModal" style="display: none;">
+        <div class="modal-content">
+            <h2>Credits Exhausted</h2>
+            <p>You've used all 50 credits for this persona.</p>
+            <p>Explore other personas in the library or review your conversation history.</p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal()">View Conversation</button>
+                <a href="library.html" class="btn btn-primary">Persona Library</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script src="chat.js"></script>
+    <script>
+        // Update server status indicator
+        async function updateStatusIndicator() {
+            const statusEl = document.getElementById("serverStatus");
+            try {
+                const res = await fetch("http://localhost:5000/api/status");
+                const data = await res.json();
+                if (data.status === "ok" && data.model_available) {
+                    statusEl.textContent = "Active";
+                    statusEl.style.color = "var(--color-success)";
+                } else if (data.status === "ok") {
+                    statusEl.textContent = "Model Missing";
+                    statusEl.style.color = "var(--color-warning)";
+                }
+            } catch {
+                statusEl.textContent = "Server Offline";
+                statusEl.style.color = "var(--color-locked)";
+            }
+        }
+        updateStatusIndicator();
+    </script>
+</body>
+</html>
