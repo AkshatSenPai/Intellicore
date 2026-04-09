@@ -102,7 +102,7 @@ class ConversationManager:
         if not self.history:
             return ""
         lines = []
-        for h in self.history[-5:]:  # Include last 5 exchanges for prompt
+        for h in self.history[-self.max_turns:]:
             lines.append(f"User: {h['user']}")
             lines.append(f"You: {h['assistant']}")
         return "\n".join(lines)

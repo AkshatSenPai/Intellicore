@@ -37,7 +37,7 @@
         <div class="chat-header-right">
             <div class="credit-counter" id="creditCounter">
                 <span class="credit-icon">💬</span>
-                <span class="credit-text">Credits: <span id="creditCount">50</span>/50</span>
+                <span class="credit-text">Credits: <span id="creditCount">50</span>/<span id="creditMax">50</span></span>
             </div>
         </div>
     </div>
@@ -110,7 +110,10 @@
         async function updateStatusIndicator() {
             const statusEl = document.getElementById("serverStatus");
             try {
-                const res = await fetch("http://localhost:5000/api/status");
+                const baseUrl = window.API_BASE || (window.location.origin && window.location.origin !== "null"
+                    ? window.location.origin
+                    : "http://localhost:5000");
+                const res = await fetch(`${baseUrl}/api/status`, { credentials: "include" });
                 const data = await res.json();
                 if (data.status === "ok" && data.model_available) {
                     statusEl.textContent = "Active";

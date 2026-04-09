@@ -5,12 +5,16 @@
  */
 
 // ── Configuration ──────────────────────────────
-const API_BASE = "http://localhost:5000";
+const origin = window.location.origin;
+const hasValidOrigin = origin && origin !== "null";
+const isLocalhostOrigin = hasValidOrigin && (origin.includes("localhost") || origin.includes("127.0.0.1"));
+const API_BASE = window.API_BASE || (isLocalhostOrigin || !hasValidOrigin ? "http://localhost:5000" : origin);
 const USE_STREAMING = true; // Set to false to use non-streaming mode
+window.API_BASE = API_BASE;
 
 // ── Chat State ─────────────────────────────────
 let currentCredits = 50;
-const maxCredits = 50;
+let maxCredits = 50;
 let conversationHistory = [];
 let isWaitingForResponse = false;
 
@@ -53,7 +57,7 @@ function initializeChat() {
  */
 async function checkServerStatus() {
     try {
-        const res = await fetch(`${API_BASE}/api/status`);
+        const res = await fetch(`${API_BASE}/api/status`, { credentials: "include" });
         const data = await res.json();
 
         if (data.status === "ok") {
@@ -68,6 +72,14 @@ async function checkServerStatus() {
                     "⚠️ Vector database is empty. Run: python build_chroma.py"
                 );
             }
+
+            if (typeof data.remaining_credits === "number") {
+                currentCredits = data.remaining_credits;
+            }
+            if (typeof data.credit_limit === "number") {
+                maxCredits = data.credit_limit;
+            }
+            updateCreditDisplay();
         }
     } catch (err) {
         console.error("❌ Server not reachable:", err);
@@ -92,7 +104,7 @@ function showSystemMessage(text) {
         </div>
     `;
     messagesArea.appendChild(div);
-    scrollToBottom(messagesArea);
+    window.IntellicoreApp.scrollToBottom(messagesArea);
 }
 
 // ── Send Message ───────────────────────────────
@@ -106,10 +118,6 @@ async function sendMessage() {
     // Add user message to UI
     addMessage(text, "user");
     messageInput.value = "";
-
-    // Decrease credits
-    currentCredits--;
-    updateCreditDisplay();
 
     // Lock input while waiting
     isWaitingForResponse = true;
@@ -146,18 +154,45 @@ async function sendNonStreamingMessage(text) {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ message: text }),
+            credentials: "include",
         });
 
         removeTypingIndicator(typingId);
 
         if (!res.ok) {
-            const err = await res.json();
+            let err = {};
+            try {
+                err = await res.json();
+            } catch (e) {
+                err = {};
+            }
             addMessage(`Error: ${err.error || "Server error"}`, "system");
+            if (typeof err.remaining_credits === "number") {
+                currentCredits = err.remaining_credits;
+            }
+            if (typeof err.credit_limit === "number") {
+                maxCredits = err.credit_limit;
+            }
+            updateCreditDisplay();
+            if (currentCredits <= 0) {
+                handleCreditsExhausted();
+            }
             return;
         }
 
         const data = await res.json();
         addMessage(data.response, "persona");
+
+        if (typeof data.remaining_credits === "number") {
+            currentCredits = data.remaining_credits;
+        }
+        if (typeof data.credit_limit === "number") {
+            maxCredits = data.credit_limit;
+        }
+        updateCreditDisplay();
+        if (currentCredits <= 0) {
+            handleCreditsExhausted();
+        }
 
         if (data.sources && data.sources.length > 0) {
             console.log("📂 Sources:", data.sources);
@@ -181,11 +216,27 @@ async function sendStreamingMessage(text) {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ message: text }),
+            credentials: "include",
         });
 
         if (!res.ok) {
-            const err = await res.json();
+            let err = {};
+            try {
+                err = await res.json();
+            } catch (e) {
+                err = {};
+            }
             contentEl.querySelector("p").textContent = `Error: ${err.error || "Server error"}`;
+            if (typeof err.remaining_credits === "number") {
+                currentCredits = err.remaining_credits;
+            }
+            if (typeof err.credit_limit === "number") {
+                maxCredits = err.credit_limit;
+            }
+            updateCreditDisplay();
+            if (currentCredits <= 0) {
+                handleCreditsExhausted();
+            }
             return;
         }
 
@@ -214,11 +265,21 @@ async function sendStreamingMessage(text) {
                         fullResponse += data.token;
                         contentEl.querySelector("p").textContent = fullResponse;
                         const messagesArea = document.getElementById("messagesArea");
-                        scrollToBottom(messagesArea);
+                        window.IntellicoreApp.scrollToBottom(messagesArea);
                     }
 
                     if (data.done) {
                         console.log("📂 Sources:", data.sources);
+                        if (typeof data.remaining_credits === "number") {
+                            currentCredits = data.remaining_credits;
+                        }
+                        if (typeof data.credit_limit === "number") {
+                            maxCredits = data.credit_limit;
+                        }
+                        updateCreditDisplay();
+                        if (currentCredits <= 0) {
+                            handleCreditsExhausted();
+                        }
                     }
 
                     if (data.error) {
@@ -235,12 +296,12 @@ async function sendStreamingMessage(text) {
             conversationHistory.push({
                 type: "user",
                 text: text,
-                timestamp: formatTimestamp(),
+                timestamp: window.IntellicoreApp.formatTimestamp(),
             });
             conversationHistory.push({
                 type: "persona",
                 text: fullResponse,
-                timestamp: formatTimestamp(),
+                timestamp: window.IntellicoreApp.formatTimestamp(),
             });
         }
     } catch (err) {
@@ -263,7 +324,7 @@ function addMessage(text, type) {
     const welcome = messagesArea.querySelector(".chat-welcome");
     if (welcome) welcome.remove();
 
-    const timestamp = formatTimestamp();
+    const timestamp = window.IntellicoreApp.formatTimestamp();
     const messageDiv = document.createElement("div");
     messageDiv.className = `message ${type}-message`;
 
@@ -302,7 +363,7 @@ function addMessage(text, type) {
     }
 
     messagesArea.appendChild(messageDiv);
-    scrollToBottom(messagesArea);
+    window.IntellicoreApp.scrollToBottom(messagesArea);
 
     // Store in history (non-streaming)
     if (type !== "system" && !USE_STREAMING) {
@@ -320,7 +381,7 @@ function createEmptyPersonaMessage() {
     const welcome = messagesArea.querySelector(".chat-welcome");
     if (welcome) welcome.remove();
 
-    const timestamp = formatTimestamp();
+    const timestamp = window.IntellicoreApp.formatTimestamp();
     const messageDiv = document.createElement("div");
     messageDiv.className = "message persona-message";
     messageDiv.innerHTML = `
@@ -339,7 +400,7 @@ function createEmptyPersonaMessage() {
     `;
 
     messagesArea.appendChild(messageDiv);
-    scrollToBottom(messagesArea);
+    window.IntellicoreApp.scrollToBottom(messagesArea);
 
     return {
         messageEl: messageDiv,
@@ -371,7 +432,7 @@ function showTypingIndicator() {
     `;
 
     messagesArea.appendChild(div);
-    scrollToBottom(messagesArea);
+    window.IntellicoreApp.scrollToBottom(messagesArea);
     return id;
 }
 
@@ -405,6 +466,7 @@ function setInputState(enabled) {
  */
 function updateCreditDisplay() {
     const creditCount = document.getElementById("creditCount");
+    const creditMax = document.getElementById("creditMax");
     const remainingCredits = document.getElementById("remainingCredits");
     const creditCounter = document.getElementById("creditCounter");
     const messageInput = document.getElementById("messageInput");
@@ -412,6 +474,7 @@ function updateCreditDisplay() {
     const inputStatus = document.getElementById("inputStatus");
 
     if (creditCount) creditCount.textContent = currentCredits;
+    if (creditMax) creditMax.textContent = maxCredits;
     if (remainingCredits) remainingCredits.textContent = currentCredits;
 
     if (creditCounter) {
@@ -450,21 +513,6 @@ function escapeHtml(text) {
     const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
-}
-
-function formatTimestamp(date = new Date()) {
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
-    const ampm = hours >= 12 ? "PM" : "AM";
-    const displayHours = hours % 12 || 12;
-    const displayMinutes = minutes.toString().padStart(2, "0");
-    return `${displayHours}:${displayMinutes} ${ampm}`;
-}
-
-function scrollToBottom(element) {
-    if (element) {
-        element.scrollTop = element.scrollHeight;
-    }
 }
 
 // ── Exports ────────────────────────────────────

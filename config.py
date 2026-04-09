@@ -33,6 +33,17 @@ class Config:
     temperature: float = 0.7
     max_conversation_history: int = 10  # number of past exchanges to keep
 
+    # --- Credits ---
+    credit_limit: int = 50
+
+    # --- API ---
+    allowed_origins: list[str] = field(default_factory=lambda: [
+        "http://localhost:5000",
+        "http://127.0.0.1:5000",
+        "http://localhost:5500",
+        "http://127.0.0.1:5500",
+    ])
+
     # --- Persona ---
     persona_name: str = "Donald J. Trump"
     persona_style: str = "confident, assertive, opinionated, punchy short sentences, repetitive emphasis"

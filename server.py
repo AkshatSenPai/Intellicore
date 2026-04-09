@@ -18,9 +18,10 @@ Run:
 import os
 import sys
 import time
-from flask import Flask, request, jsonify, Response, send_from_directory, stream_with_context
-from flask_cors import CORS
+import uuid
 import json
+from flask import Flask, request, jsonify, Response, send_from_directory, stream_with_context, session
+from flask_cors import CORS
 
 import ollama
 from chromadb import PersistentClient
@@ -33,9 +34,17 @@ from config import Config
 # ──────────────────────────────────────────────
 
 app = Flask(__name__, static_folder=".", static_url_path="")
-CORS(app)  # Allow frontend to call API from any origin
+app.secret_key = os.environ.get("INTELLICORE_SECRET_KEY", os.urandom(24))
 
 cfg = Config()
+
+allowed_origins_env = os.environ.get("INTELLICORE_ALLOWED_ORIGINS", "").strip()
+if allowed_origins_env:
+    allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
+else:
+    allowed_origins = cfg.allowed_origins
+
+CORS(app, resources={r"/api/*": {"origins": allowed_origins}}, supports_credentials=True)
 
 print("=" * 50)
 print("  🧠 InteliCore API Server")
@@ -57,27 +66,42 @@ print(f"📚 Loaded {doc_count} chunks from ChromaDB.")
 if doc_count == 0:
     print("⚠️  WARNING: Database is empty! Run `python build_chroma.py` first.")
 
-# --- Conversation history (per-session, in-memory) ---
-conversation_history = []
-last_sources = []
+# --- Session state (per-session, in-memory) ---
+session_store = {}
 
 
 # ──────────────────────────────────────────────
 #  Helper functions
 # ──────────────────────────────────────────────
 
+def get_session_state():
+    """Get or create per-session state."""
+    session_id = session.get("sid")
+    if not session_id:
+        session_id = uuid.uuid4().hex
+        session["sid"] = session_id
+
+    state = session_store.get(session_id)
+    if not state:
+        state = {
+            "history": [],
+            "last_sources": [],
+            "credits": cfg.credit_limit,
+        }
+        session_store[session_id] = state
+
+    return session_id, state
+
 def retrieve_context(query: str):
     """Retrieve relevant transcript chunks for a query."""
-    global last_sources
-
-    if collection.count() == 0:
-        last_sources = []
-        return ""
+    doc_count = collection.count()
+    if doc_count == 0:
+        return "", []
 
     q_embed = embedder.encode([query]).tolist()
     results = collection.query(
         query_embeddings=q_embed,
-        n_results=min(cfg.n_results, collection.count()),
+        n_results=min(cfg.n_results, doc_count),
         include=["documents", "metadatas", "distances"],
     )
 
@@ -96,16 +120,16 @@ def retrieve_context(query: str):
                 if meta and "source" in meta:
                     sources.add(meta["source"])
 
-    last_sources = sorted(sources)
-    return "\n\n---\n\n".join(chunks) if chunks else ""
+    return "\n\n---\n\n".join(chunks) if chunks else "", sorted(sources)
 
 
-def format_history():
+def format_history(history):
     """Format recent conversation history for the prompt."""
-    if not conversation_history:
+    if not history:
         return ""
     lines = []
-    for h in conversation_history[-5:]:
+    history_limit = max(1, cfg.max_conversation_history)
+    for h in history[-history_limit:]:
         lines.append(f"User: {h['user']}")
         lines.append(f"You: {h['assistant']}")
     return "\n".join(lines)
@@ -134,12 +158,22 @@ def chat():
     if not query:
         return jsonify({"error": "Empty message"}), 400
 
+    _session_id, state = get_session_state()
+
+    if state["credits"] <= 0:
+        return jsonify({
+            "error": "No credits remaining",
+            "remaining_credits": 0,
+            "credit_limit": cfg.credit_limit,
+        }), 402
+
     try:
         # Retrieve context from ChromaDB
-        context = retrieve_context(query)
+        context, sources = retrieve_context(query)
+        state["last_sources"] = sources
 
         # Build prompt
-        history_str = format_history()
+        history_str = format_history(state["history"])
         system_prompt = cfg.build_prompt(context, query, history_str)
 
         # Call Ollama
@@ -157,14 +191,18 @@ def chat():
         reply = response["message"]["content"]
 
         # Save to conversation history
-        conversation_history.append({"user": query, "assistant": reply})
-        if len(conversation_history) > cfg.max_conversation_history:
-            conversation_history.pop(0)
+        state["history"].append({"user": query, "assistant": reply})
+        if len(state["history"]) > cfg.max_conversation_history:
+            state["history"].pop(0)
+
+        state["credits"] -= 1
 
         return jsonify({
             "response": reply,
-            "sources": last_sources,
+            "sources": sources,
             "credits_used": 1,
+            "remaining_credits": state["credits"],
+            "credit_limit": cfg.credit_limit,
         })
 
     except Exception as e:
@@ -190,9 +228,19 @@ def chat_stream():
     if not query:
         return jsonify({"error": "Empty message"}), 400
 
+    _session_id, state = get_session_state()
+
+    if state["credits"] <= 0:
+        return jsonify({
+            "error": "No credits remaining",
+            "remaining_credits": 0,
+            "credit_limit": cfg.credit_limit,
+        }), 402
+
     # Retrieve context
-    context = retrieve_context(query)
-    history_str = format_history()
+    context, sources = retrieve_context(query)
+    state["last_sources"] = sources
+    history_str = format_history(state["history"])
     system_prompt = cfg.build_prompt(context, query, history_str)
 
     messages = [
@@ -216,11 +264,13 @@ def chat_stream():
 
             # Final message with complete response and sources
             complete = "".join(full_response)
-            conversation_history.append({"user": query, "assistant": complete})
-            if len(conversation_history) > cfg.max_conversation_history:
-                conversation_history.pop(0)
+            state["history"].append({"user": query, "assistant": complete})
+            if len(state["history"]) > cfg.max_conversation_history:
+                state["history"].pop(0)
 
-            yield f"data: {json.dumps({'done': True, 'sources': last_sources})}\n\n"
+            state["credits"] -= 1
+
+            yield f"data: {json.dumps({'done': True, 'sources': sources, 'remaining_credits': state['credits'], 'credit_limit': cfg.credit_limit})}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -238,6 +288,7 @@ def chat_stream():
 @app.route("/api/status", methods=["GET"])
 def status():
     """Check server health and model availability."""
+    _session_id, state = get_session_state()
     model_ok = False
     try:
         models = ollama.list()
@@ -252,22 +303,31 @@ def status():
         "model": cfg.llm_model,
         "model_available": model_ok,
         "db_chunks": collection.count(),
-        "conversation_length": len(conversation_history),
+        "conversation_length": len(state["history"]),
+        "remaining_credits": state["credits"],
+        "credit_limit": cfg.credit_limit,
     })
 
 
 @app.route("/api/reset", methods=["POST"])
 def reset():
     """Reset conversation history."""
-    global conversation_history
-    conversation_history = []
-    return jsonify({"status": "ok", "message": "Conversation history cleared."})
+    _session_id, state = get_session_state()
+    state["history"] = []
+    state["last_sources"] = []
+    return jsonify({
+        "status": "ok",
+        "message": "Conversation history cleared.",
+        "remaining_credits": state["credits"],
+        "credit_limit": cfg.credit_limit,
+    })
 
 
 @app.route("/api/sources", methods=["GET"])
 def sources():
     """Get sources from the last retrieval."""
-    return jsonify({"sources": last_sources})
+    _session_id, state = get_session_state()
+    return jsonify({"sources": state["last_sources"]})
 
 
 # ──────────────────────────────────────────────
