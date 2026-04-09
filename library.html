@@ -4,14 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Persona Library - Intellicore</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&family=Sora:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="library-page">
     <!-- Navigation -->
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-brand">
-                <h1 class="logo">Intellicore</h1>
+                <a href="index.html" class="logo-link">
+                    <h1 class="logo">Intellicore</h1>
+                </a>
                 <span class="tagline">Curated AI Personas</span>
             </div>
             <ul class="nav-links">
@@ -26,7 +31,7 @@
     <section class="page-header">
         <div class="container">
             <h1 class="page-title">Persona Library</h1>
-            <p class="page-subtitle">Curated AI personas representing real individuals</p>
+            <p class="page-subtitle">Curated AI personas, starting with Donald Trump. More coming soon.</p>
         </div>
     </section>
 
@@ -57,11 +62,12 @@
     <!-- Available Personas -->
     <section class="personas-grid-section">
         <div class="container">
-            <h2 class="section-title">Available Personas</h2>
+            <h2 class="section-title">Coming Soon</h2>
+            <p class="section-subtitle">More profiles are in development and will appear here.</p>
             
             <div class="personas-grid">
                 <!-- Elon Musk -->
-                <div class="persona-card">
+                <div class="persona-card locked coming-soon">
                     <div class="persona-avatar">EM</div>
                     <h3 class="persona-name">Elon Musk</h3>
                     <p class="persona-role">Technology Innovator</p>
@@ -69,13 +75,14 @@
                         Technology innovator and entrepreneur known for ambitious ventures in space, electric vehicles, and emerging technologies.
                     </p>
                     <div class="persona-credits">
-                        <span class="credit-indicator available">💬 35 credits</span>
+                        <span class="credit-indicator coming-soon">Coming soon</span>
+                        <span class="lock-badge">Profile in development</span>
                     </div>
-                    <a href="persona-musk.html" class="btn btn-secondary">View Profile</a>
+                    <button class="btn btn-secondary" disabled>Coming Soon</button>
                 </div>
 
                 <!-- Warren Buffett -->
-                <div class="persona-card">
+                <div class="persona-card locked coming-soon">
                     <div class="persona-avatar buffett-avatar">WB</div>
                     <h3 class="persona-name">Warren Buffett</h3>
                     <p class="persona-role">Investment Strategist</p>
@@ -83,13 +90,14 @@
                         Investment strategist known for value investing philosophy and long-term wealth building principles.
                     </p>
                     <div class="persona-credits">
-                        <span class="credit-indicator available">💬 40 credits</span>
+                        <span class="credit-indicator coming-soon">Coming soon</span>
+                        <span class="lock-badge">Profile in development</span>
                     </div>
-                    <a href="persona-buffett.html" class="btn btn-secondary">View Profile</a>
+                    <button class="btn btn-secondary" disabled>Coming Soon</button>
                 </div>
 
                 <!-- Oprah Winfrey -->
-                <div class="persona-card">
+                <div class="persona-card locked coming-soon">
                     <div class="persona-avatar oprah-avatar">OW</div>
                     <h3 class="persona-name">Oprah Winfrey</h3>
                     <p class="persona-role">Media Leader</p>
@@ -97,13 +105,14 @@
                         Media leader and philanthropist known for empathetic communication and advocacy for personal growth.
                     </p>
                     <div class="persona-credits">
-                        <span class="credit-indicator available">💬 30 credits</span>
+                        <span class="credit-indicator coming-soon">Coming soon</span>
+                        <span class="lock-badge">Profile in development</span>
                     </div>
-                    <a href="persona-oprah.html" class="btn btn-secondary">View Profile</a>
+                    <button class="btn btn-secondary" disabled>Coming Soon</button>
                 </div>
 
                 <!-- Steve Jobs -->
-                <div class="persona-card locked">
+                <div class="persona-card locked coming-soon">
                     <div class="persona-avatar jobs-avatar">SJ</div>
                     <h3 class="persona-name">Steve Jobs</h3>
                     <p class="persona-role">Visionary Product Designer</p>
@@ -111,14 +120,14 @@
                         Visionary product designer and entrepreneur known for transforming personal computing and consumer technology.
                     </p>
                     <div class="persona-credits">
-                        <span class="credit-indicator exhausted">💬 0 credits</span>
-                        <span class="lock-badge">🔒 Unavailable</span>
+                        <span class="credit-indicator coming-soon">Coming soon</span>
+                        <span class="lock-badge">Profile in development</span>
                     </div>
-                    <button class="btn btn-secondary" disabled>Unavailable</button>
+                    <button class="btn btn-secondary" disabled>Coming Soon</button>
                 </div>
 
                 <!-- Nelson Mandela -->
-                <div class="persona-card">
+                <div class="persona-card locked coming-soon">
                     <div class="persona-avatar mandela-avatar">NM</div>
                     <h3 class="persona-name">Nelson Mandela</h3>
                     <p class="persona-role">Leadership & Reconciliation</p>
@@ -126,13 +135,14 @@
                         Global leader known for principles of reconciliation, justice, and transformative leadership.
                     </p>
                     <div class="persona-credits">
-                        <span class="credit-indicator available">💬 25 credits</span>
+                        <span class="credit-indicator coming-soon">Coming soon</span>
+                        <span class="lock-badge">Profile in development</span>
                     </div>
-                    <a href="persona-mandela.html" class="btn btn-secondary">View Profile</a>
+                    <button class="btn btn-secondary" disabled>Coming Soon</button>
                 </div>
 
                 <!-- Ruth Bader Ginsburg -->
-                <div class="persona-card">
+                <div class="persona-card locked coming-soon">
                     <div class="persona-avatar rbg-avatar">RG</div>
                     <h3 class="persona-name">Ruth Bader Ginsburg</h3>
                     <p class="persona-role">Legal Scholar</p>
@@ -140,9 +150,10 @@
                         Legal scholar and justice known for advocacy for equality and rigorous constitutional interpretation.
                     </p>
                     <div class="persona-credits">
-                        <span class="credit-indicator available">💬 20 credits</span>
+                        <span class="credit-indicator coming-soon">Coming soon</span>
+                        <span class="lock-badge">Profile in development</span>
                     </div>
-                    <a href="persona-rbg.html" class="btn btn-secondary">View Profile</a>
+                    <button class="btn btn-secondary" disabled>Coming Soon</button>
                 </div>
             </div>
         </div>
